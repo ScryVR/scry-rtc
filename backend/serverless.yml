@@ -1,0 +1,81 @@
+# Provisions a serverless stack that functions as a WebRTC signalling server.
+
+service: scry-rtc
+
+provider:
+  name: aws
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+  stage: ${opt:stage, 'dev'}
+  profile: ${opt:profile, 'personal'}
+  region: eu-central-1
+  websocketsApiRouteSelectionExpression: $request.body.action
+  environment:
+    STAGE: ${self:provider.stage}
+    ROOM_MEMBERS_TABLE_NAME: ${self:service}-subscriptions-${self:provider.stage}
+    POCKET_DIMENSION_SECRET_KEY: ${ssm:/${self:provider.stage}/${self:service}/POCKET_DIMENSION_SECRET_KEY}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource:
+        - arn:aws:dynamodb:eu-central-1:${self:custom.accountId}:table/${self:provider.environment.ROOM_MEMBERS_TABLE_NAME}
+
+package:
+  exclude:
+    - node_modules/**
+    - package*.json
+    - __pycache__/**
+    - .tox/**
+    - .pytest_cache/
+  patterns:  # Pattern for framework v2
+    - '!node_modules/**'
+    - '!package*.json'
+    - '!__pycache__/**'
+    - '!.tox/**'
+    - '!.pytest_cache/'
+
+plugins:
+  - serverless-python-requirements
+  # - serverless-offline
+
+functions:
+  authorizer:
+    handler: functions.src.handlers.authorizer.handler
+  connect:
+    handler: functions.src.handlers.connect.handler
+    events:
+      - websocket:
+          route: $connect
+          authorizer:
+            name: authorizer
+            identitySource:
+              - 'route.request.header.X-Forwarded-Proto'
+  joinRoom:
+    handler: functions.src.handlers.join_room.handler
+    events:
+      - websocket:
+          route: join-room
+  sendPayload:
+    handler: functions.src.handlers.send_payload.handler
+    events:
+      - websocket:
+          route: send-payload
+
+resources:
+  Resources:
+    authTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.ROOM_MEMBERS_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: room_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: room_id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+custom:
+  accountId: "077565453913"
+

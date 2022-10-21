@@ -1,0 +1,9 @@
+{
+  "name": "scry-rtc",
+  "version": "0.0.1",
+  "main": "client/WebRtcClient.ts",
+  "dependencies": {
+    "lodash.throttle": "^4.1.1",
+    "serverless-python-requirements": "^5.4.0"
+  }
+}
