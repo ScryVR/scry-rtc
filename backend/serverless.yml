@@ -48,9 +48,10 @@ functions:
       - websocket:
           route: $connect
           authorizer:
+            resultTtlInSeconds: 3600
             name: authorizer
-            identitySource:
-              - 'route.request.header.X-Forwarded-Proto'
+            identitySource: method.request.querystring.token
+
   joinRoom:
     handler: functions.src.handlers.join_room.handler
     events:
