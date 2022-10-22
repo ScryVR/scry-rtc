@@ -32,7 +32,6 @@ export class WebRtcClient {
   id: string;
 
   peerConnections: Record<string, RTCPeerConnection>;
-  dataChannels: Record<string, Record<string, RTCDataChannel>>;
   eventListeners: Record<string, Array<Function>>;
 
   constructor(props: IWebRtcClientProps) {
@@ -63,14 +62,11 @@ export class WebRtcClient {
     sendChannel.onopen = () => {
       this.emit("sendChannelOpen", { peerId: id, sendChannel });
     };
-    const receiveChannel = connection.createDataChannel("receiveChannel");
-    receiveChannel.onopen = () => {
-      this.emit("receiveChannelOpen", { peerId: id, receiveChannel });
-    };
-    this.dataChannels[id] = {
-      sendChannel,
-      receiveChannel,
-    };
+    connection.ondatachannel = ({ channel: receiveChannel }: { channel: RTCDataChannel }) => {
+      receiveChannel.onopen = () => {
+        this.emit("receiveChannelOpen", { peerId: id, receiveChannel });
+      };
+    }
     // TODO: Add handlers for audio/video
     this.peerConnections[id] = connection;
 
@@ -180,7 +176,6 @@ export class WebRtcClient {
 
 const DEFAULT_PROPS = {
   peerConnections: {},
-  dataChannels: {},
   eventListeners: {},
   signallingServer:
     "wss://1ga4klxvh3.execute-api.eu-central-1.amazonaws.com/dev",
