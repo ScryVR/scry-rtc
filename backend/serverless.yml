@@ -50,7 +50,8 @@ functions:
           authorizer:
             resultTtlInSeconds: 3600
             name: authorizer
-            identitySource: method.request.querystring.token
+            identitySource:
+              - route.request.querystring.token
 
   joinRoom:
     handler: functions.src.handlers.join_room.handler
