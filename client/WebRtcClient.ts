@@ -73,6 +73,14 @@ export class WebRtcClient {
     };
     // TODO: Add handlers for audio/video
     this.peerConnections[id] = connection;
+
+    connection.onconnectionstatechange = (event: any) => {
+      if (event?.target?.connectionState === "failed") {
+        console.warn("A WebRTC connection entered the failed status. Removing connection.")
+        delete this.peerConnections[id]
+      }
+      this.emit("peerConnectionStateChange", event)
+    }
     return connection;
   }
 
