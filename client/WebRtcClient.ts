@@ -2,11 +2,18 @@
 import throttle from "lodash.throttle";
 import { IceServers } from "./IceServers";
 
+type videoSettings = {
+  el: HTMLVideoElement,
+  audio: boolean,
+  video: boolean
+}
+
 type IWebRtcClientProps = {
   signallingServer?: string;
   sessionId: string;
   getToken: Function;
   clientId: string;
+  video?: videoSettings;
 };
 
 type socketEventType =
@@ -21,6 +28,13 @@ type socketEvent = {
   data: Record<string, any>;
 };
 
+type PeerInfo = {
+  name: string;
+  id: string;
+  hasVideo: boolean;
+  hasAudio: boolean;
+}
+
 export class WebRtcClient {
   static ICE_SERVERS = IceServers.servers;
   signallingServer: string;
@@ -30,8 +44,10 @@ export class WebRtcClient {
   socket: WebSocket;
   name: string;
   id: string;
+  video?: videoSettings
 
   peerConnections: Record<string, RTCPeerConnection>;
+  peerInfo: Record<string, PeerInfo>;
   eventListeners: Record<string, Array<Function>>;
 
   constructor(props: IWebRtcClientProps) {
@@ -67,17 +83,46 @@ export class WebRtcClient {
         this.emit("receiveChannelOpen", { peerId: id, receiveChannel });
       };
     }
-    // TODO: Add handlers for audio/video
+    // Add handlers for audio/video
+    if (this.video?.el) {
+      // @ts-ignore
+      this.video.el.srcObject?.getTracks().forEach((track: any) => {
+        if (this.video) {
+          if (!this.video[track.kind]) {
+            console.log(`disabled ${track.kind} track due to initial settings`)
+            track.enabled = false
+          } 
+        }
+        // @ts-ignore
+        connection.addTrack(track, this.video.el.srcObject)
+      })
+    }
+
+    connection.ontrack = (event: RTCTrackEvent) => {
+      this.emit("trackAdded", { event, connectionId: id})
+    }
+
     this.peerConnections[id] = connection;
 
     connection.onconnectionstatechange = (event: any) => {
       if (event?.target?.connectionState === "failed") {
         console.warn("A WebRTC connection entered the failed status. Removing connection.")
         delete this.peerConnections[id]
+        delete this.peerInfo[id]
       }
       this.emit("peerConnectionStateChange", event)
     }
     return connection;
+  }
+
+  toggleTracks(connectionId: string, settings: videoSettings) {
+    // This method should be used when the track has already been added.
+    // It can be used to mute audio, turn on video, etc.
+    console.warn("Per-connection track toggling still hasn't been implemented")
+    // @ts-ignore
+    settings.el.srcObject?.getTracks().forEach((track: any) => {
+      track.enabled = settings[track.kind]
+    })
   }
 
   // Signalling server interactions
@@ -91,6 +136,7 @@ export class WebRtcClient {
     this.socket.onmessage = (event: any) =>
       this.dispatchSocketMessageToHandlers(JSON.parse(event.data));
     this.socket.onclose = () => this.reopenSocket();
+    this.socket.onerror = (err: any) => this.emit("socketError", err)
   }
   onSocketOpen() {
     this.emit("socketOpen");
@@ -116,7 +162,7 @@ export class WebRtcClient {
         const offer = await offerConnection.createOffer();
         await offerConnection.setLocalDescription(offer);
         this.sendSocketMessage(
-          { type: "offer", offererId: event.data.ownId, offer },
+          { type: "offer", offererId: event.data.ownId, offer, name: this.name },
           event.data.connectionId
         );
         break;
@@ -128,8 +174,9 @@ export class WebRtcClient {
         await answerConnection.setRemoteDescription(event.data.offer);
         const answer = await answerConnection.createAnswer();
         await answerConnection.setLocalDescription(answer);
+        this.peerInfo[event.data.offererId] = { name: event.data.name, hasVideo: false, hasAudio: false, id: event.data.offererId }
         this.sendSocketMessage(
-          { type: "answer", offererId: this.id, answer },
+          { type: "answer", offererId: this.id, answer, name: this.name },
           event.data.connectionId
         );
         break;
@@ -137,6 +184,7 @@ export class WebRtcClient {
         await this.peerConnections[event.data.offererId].setRemoteDescription(
           event.data.answer
         );
+        this.peerInfo[event.data.offererId] = { name: event.data.name, hasVideo: false, hasAudio: false, id: event.data.offererId }
         break;
       case "ice_candidate":
         try {
@@ -176,6 +224,7 @@ export class WebRtcClient {
 
 const DEFAULT_PROPS = {
   peerConnections: {},
+  peerInfo: {},
   eventListeners: {},
   signallingServer:
     "wss://1ga4klxvh3.execute-api.eu-central-1.amazonaws.com/dev",
