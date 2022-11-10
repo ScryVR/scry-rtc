@@ -15,8 +15,8 @@ def get_room_members(room_id: str):
     print("Got room members", response)
     try:
         item = response["Item"]
-        return [json.loads(room_member.get("S")) for room_member in item.get("room_members").get("L")]
+        return ([json.loads(room_member.get("S")) for room_member in item.get("room_members").get("L")], response.get("version", {}).get("N") or 0)
     except Exception as e:
         print("Got exception while getting room members", e)
-        return []
+        return ([], 0)
 

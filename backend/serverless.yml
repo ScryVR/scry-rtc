@@ -52,7 +52,6 @@ functions:
             name: authorizer
             identitySource:
               - route.request.querystring.token
-
   joinRoom:
     handler: functions.src.handlers.join_room.handler
     events:
