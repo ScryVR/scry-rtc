@@ -33,6 +33,7 @@ type PeerInfo = {
   id: string;
   hasVideo: boolean;
   hasAudio: boolean;
+  socketConnectionId?: string;
 }
 
 export class WebRtcClient {
@@ -45,7 +46,7 @@ export class WebRtcClient {
   name: string;
   id: string;
   video?: videoSettings
-
+  videoInitialized: boolean;
   peerConnections: Record<string, RTCPeerConnection>;
   peerInfo: Record<string, PeerInfo>;
   eventListeners: Record<string, Array<Function>>;
@@ -55,7 +56,7 @@ export class WebRtcClient {
     this.createSocket();
   }
   // WebRTC network management
-  addPeerConnection(id: string, connectionId: string) {
+  async addPeerConnection(id: string, connectionId: string) {
     const connection = new RTCPeerConnection({
       iceServers: WebRtcClient.ICE_SERVERS,
       iceTransportPolicy: "all",
@@ -85,9 +86,14 @@ export class WebRtcClient {
     }
     // Add handlers for audio/video
     if (this.video?.el) {
+      if (this.videoInitialized) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        this.video.el.srcObject = stream;
+      }
       // @ts-ignore
       this.video.el.srcObject?.getTracks().forEach((track: any) => {
         if (this.video) {
+          // @ts-ignore
           if (!this.video[track.kind]) {
             console.log(`disabled ${track.kind} track due to initial settings`)
             track.enabled = false
@@ -114,13 +120,11 @@ export class WebRtcClient {
     }
     return connection;
   }
-
-  toggleTracks(connectionId: string, settings: videoSettings) {
-    // This method should be used when the track has already been added.
-    // It can be used to mute audio, turn on video, etc.
-    console.warn("Per-connection track toggling still hasn't been implemented")
+  
+  async toggleTracks(connectionId: string, settings: videoSettings) {
     // @ts-ignore
     settings.el.srcObject?.getTracks().forEach((track: any) => {
+      // @ts-ignore
       track.enabled = settings[track.kind]
     })
   }
@@ -155,7 +159,7 @@ export class WebRtcClient {
         break;
       case "someone_joined":
         // Received an SDP offer - create an answer
-        const offerConnection = this.addPeerConnection(
+        const offerConnection = await this.addPeerConnection(
           event.data.offererId,
           event.data.connectionId
         );
@@ -167,14 +171,21 @@ export class WebRtcClient {
         );
         break;
       case "offer":
-        const answerConnection = this.addPeerConnection(
+        console.log("Got an offer")
+        const answerConnection = await this.addPeerConnection(
           event.data.offererId,
           event.data.connectionId
         );
         await answerConnection.setRemoteDescription(event.data.offer);
         const answer = await answerConnection.createAnswer();
         await answerConnection.setLocalDescription(answer);
-        this.peerInfo[event.data.offererId] = { name: event.data.name, hasVideo: false, hasAudio: false, id: event.data.offererId }
+        this.peerInfo[event.data.offererId] = {
+          name: event.data.name,
+          hasVideo: false,
+          hasAudio: false,
+          id: event.data.offererId,
+          socketConnectionId: event.data.connectionId
+        }
         this.sendSocketMessage(
           { type: "answer", offererId: this.id, answer, name: this.name },
           event.data.connectionId
@@ -184,7 +195,13 @@ export class WebRtcClient {
         await this.peerConnections[event.data.offererId].setRemoteDescription(
           event.data.answer
         );
-        this.peerInfo[event.data.offererId] = { name: event.data.name, hasVideo: false, hasAudio: false, id: event.data.offererId }
+        this.peerInfo[event.data.offererId] = {
+          name: event.data.name,
+          hasVideo: false,
+          hasAudio: false,
+          id: event.data.offererId,
+          socketConnectionId: event.data.connectionId
+        }
         break;
       case "ice_candidate":
         try {
@@ -223,6 +240,7 @@ export class WebRtcClient {
 }
 
 const DEFAULT_PROPS = {
+  videoInitialized: true,
   peerConnections: {},
   peerInfo: {},
   eventListeners: {},
