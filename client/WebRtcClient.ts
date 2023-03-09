@@ -14,6 +14,7 @@ type IWebRtcClientProps = {
   getToken: Function;
   clientId: string;
   video?: videoSettings;
+  name?: string;
 };
 
 type socketEventType =
@@ -90,7 +91,7 @@ export class WebRtcClient {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
           this.video.el.srcObject = stream;
-        } catch(_) {
+        } catch(err) {
           try {
             console.warn("Failed to get video/audio media device. Trying to get just audio...")
             const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true })
