@@ -1,9 +1,14 @@
 {
   "name": "scry-rtc",
-  "version": "0.0.1",
-  "main": "client/WebRtcClient.ts",
+  "version": "0.0.3",
+  "main": "dist/WebRtcClient.js",
+  "scripts": {
+    "prepublishOnly": "rm -rf dist; tsc --outDir dist;"
+  },
   "dependencies": {
-    "lodash.throttle": "^4.1.1",
-    "serverless-python-requirements": "^5.4.0"
+    "lodash.throttle": "^4.1.1"
+  },
+  "devDependencies": {
+    "serverless-python-requirements": "^6.0.0"
   }
 }

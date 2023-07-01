@@ -39,17 +39,28 @@ type PeerInfo = {
 
 export class WebRtcClient {
   static ICE_SERVERS = IceServers.servers;
+  // @ts-ignore
   signallingServer: string;
+  // @ts-ignore
   getToken: Function;
+  // @ts-ignore
   sessionId: string;
+  // @ts-ignore
   clientId: string;
+  // @ts-ignore
   socket: WebSocket;
+  // @ts-ignore
   name: string;
+  // @ts-ignore
   id: string;
   video?: videoSettings
+  // @ts-ignore
   videoInitialized: boolean;
+  // @ts-ignore
   peerConnections: Record<string, RTCPeerConnection>;
+  // @ts-ignore
   peerInfo: Record<string, PeerInfo>;
+  // @ts-ignore
   eventListeners: Record<string, Array<Function>>;
 
   constructor(props: IWebRtcClientProps) {
@@ -259,6 +270,7 @@ const DEFAULT_PROPS = {
   signallingServer:
     "wss://1ga4klxvh3.execute-api.eu-central-1.amazonaws.com/dev",
   name: `User #${Math.floor(Math.random() * 10000)}`, // Should be totally fine for differention between users by humans in sharded networks.
+  // @ts-ignore
   id: crypto.randomUUID(),
 };
 
